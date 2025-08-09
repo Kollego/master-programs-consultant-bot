@@ -1,0 +1,12 @@
+python-telegram-bot==21.4
+python-dotenv==1.0.1
+requests==2.32.3
+beautifulsoup4==4.12.3
+lxml==5.2.2
+numpy==1.26.4
+sentence-transformers==2.7.0
+faiss-cpu==1.8.0.post1
+rapidfuzz==3.9.6
+pdfminer.six==20231228
+transformers==4.55.0
+torch==2.8.0 

@@ -1,0 +1,63 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+.conda/
+
+# OS / Editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Tooling caches
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.pytype/
+
+# Coverage
+.coverage
+coverage.*
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Environment files
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# Logs
+logs/
+*.log
+
+# Data artifacts (generated)
+data/processed/*.json
+data/processed/*.jsonl
+data/vector_store/*
+!data/vector_store/.gitkeep
+# Common index outputs
+**/faiss.index
+**/docs.jsonl
+**/model.txt
+
+# Scraped site dumps
+web_content/
+
+# Local models / weights
+models/
+*.gguf
+
+# Misc
+.python-version 
