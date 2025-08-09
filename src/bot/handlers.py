@@ -18,6 +18,7 @@ from src.utils.logging_config import setup_logging
 from src.utils.storage import read_json
 from src.bot.rag import Retriever, is_relevant, build_answer
 from src.bot.recommender import recommend_electives, score_program, Elective
+from src.bot.generator import TinyGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -191,6 +192,10 @@ async def compare_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 _COST_WORDS = ("сколько стоит", "стоимост", "цена", "сколько в год", "платн", "руб", "₽")
 
+_PREF_WORDS = (
+    "лучшие предметы", "самые лучшие", "самые интересные", "что выбрать", "какие предметы лучше",
+)
+
 
 async def message_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     text = (update.message.text or "").strip()
@@ -227,6 +232,25 @@ async def message_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await update.message.reply_text("Я отвечаю только на вопросы по магистерским программам ИТМО (ИИ и AI Product). Уточните вопрос.")
         return
 
+    # For vague "best subjects" style queries, prefer deterministic heuristic
+    if any(kw in text.lower() for kw in _PREF_WORDS):
+        answer = build_answer(text, pairs)
+        await update.message.reply_text(answer)
+        return
+
+    # Try local LLM if configured, with typing indicator
+    generator: Optional[TinyGenerator] = context.bot_data.get("generator")
+    if generator is not None:
+        try:
+            await update.message.reply_text("Генерирую ответ…")
+            contexts = [d.text for d, _ in pairs if d and d.text][:5]
+            llm_answer = generator.generate(text, contexts)
+            if llm_answer and llm_answer.strip():
+                await update.message.reply_text(llm_answer)
+                return
+        except Exception as e:
+            logger.warning("Local LLM generation failed: %s; falling back to heuristic", e)
+
     answer = build_answer(text, pairs)
     await update.message.reply_text(answer)
 
@@ -246,7 +270,7 @@ async def _post_init(app: Application) -> None:
         logger.warning("Failed to set bot commands: %s", e)
 
 
-def build_app() -> Application:
+def build_app(enable_local_llm: bool = False) -> Application:
     setup_logging()
     load_dotenv()
     token = os.environ.get("TELEGRAM_BOT_TOKEN") or os.environ.get("TELEGRAM_TOKEN")
@@ -256,10 +280,20 @@ def build_app() -> Application:
     retriever = Retriever(index_dir="data/vector_store")
     programs = load_programs("data/processed/programs.json")
 
+    # Local LLM is enabled only if requested by caller
+    generator: Optional[TinyGenerator] = None
+    if enable_local_llm:
+        try:
+            generator = TinyGenerator(model_name="TinyLlama/TinyLlama-1.1B-Chat-v1.0")
+            logger.info("Local LLM enabled: %s", generator.model_name)
+        except Exception as e:
+            logger.warning("Failed to initialize local LLM: %s", e)
+
     app = Application.builder().token(token).build()
 
     app.bot_data["retriever"] = retriever
     app.bot_data["programs"] = programs
+    app.bot_data["generator"] = generator
 
     conv = ConversationHandler(
         entry_points=[

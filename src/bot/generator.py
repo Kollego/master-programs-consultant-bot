@@ -25,10 +25,11 @@ class TinyGenerator:
         logger.info("TinyGenerator loaded: %s on %s", model_name, self.device)
 
     def generate(self, question: str, contexts: List[str], max_new_tokens: int = 120) -> str:
-        # Keep prompt simple and compact for a tiny model
+        # Keep prompt strict and compact for a tiny model
         ctx = "\n\n".join(f"- {c.strip()}" for c in contexts if c and c.strip())
         prompt = (
-            "Задача: Ответь на русском кратко (1-2 предложения). Используй только информацию из Контекста. "
+            "Задача: Ответь на русском кратко (1–2 предложения), ОДНИМ абзацем, БЕЗ списков и нумерации. "
+            "Используй ТОЛЬКО информацию из Контекста. Не добавляй фактов вне контекста. "
             "Если в контексте нет ответа — напиши: 'В материалах нет точного ответа.'\n\n"
             f"Контекст:\n{ctx}\n\nВопрос: {question}\nОтвет:"
         )
@@ -38,7 +39,7 @@ class TinyGenerator:
                 **inputs,
                 max_new_tokens=max_new_tokens,
                 do_sample=True,
-                temperature=0.3,
+                temperature=0.2,
                 top_p=0.9,
                 repetition_penalty=1.1,
                 eos_token_id=self.tokenizer.eos_token_id,
@@ -47,7 +48,8 @@ class TinyGenerator:
         text = self.tokenizer.decode(out[0], skip_special_tokens=True)
         # Extract after 'Ответ:' if present
         ans = text.split("Ответ:")[-1].strip()
-        # Post-trim to 2 sentences max
+        # Post-trim to 2 sentences max and no line breaks
+        ans = ans.replace("\n", " ").strip()
         parts = ans.split(".")
         if len(parts) > 2:
             ans = ".".join(parts[:2]).strip()

@@ -1,6 +1,28 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+usage() {
+  cat <<'EOF'
+Usage: scripts/bootstrap.sh [--llm]
+  --llm          Enable local HF LLM (disabled by default)
+  -h, --help     Show this help
+EOF
+}
+
+ENABLE_LLM=0
+
+while [ ${#} -gt 0 ]; do
+  case "$1" in
+    --llm|--enable-llm)
+      ENABLE_LLM=1; shift ;;
+    -h|--help)
+      usage; exit 0 ;;
+    *)
+      echo "Unknown arg: $1" >&2
+      usage; exit 1 ;;
+  esac
+done
+
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_DIR"
 
@@ -14,7 +36,7 @@ python -m pip install -r requirements.txt
 
 # 2) Env file
 if [[ ! -f .env ]]; then
-  cp config.sample.env .env
+  cp config.sample.env .env || true
 fi
 
 # 3) Load env
@@ -33,8 +55,12 @@ python -m src.pipeline.index --in data/processed/corpus.jsonl --index_dir data/v
 
 # 6) Run bot if token available
 if [[ -n "${TELEGRAM_BOT_TOKEN:-${TELEGRAM_TOKEN:-}}" ]]; then
-  echo "Starting bot..."
-  python -m src.bot.main
+  echo "Starting bot... (LLM $( [[ "$ENABLE_LLM" == "1" ]] && echo enabled || echo disabled ))"
+  if [[ "$ENABLE_LLM" == "1" ]]; then
+    python -m src.bot.main
+  else
+    python -m src.bot.main --no-llm
+  fi
 else
   echo "Done. Set TELEGRAM_BOT_TOKEN in .env and run: source .venv/bin/activate && python -m src.bot.main"
 fi 
